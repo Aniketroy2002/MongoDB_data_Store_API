@@ -4,22 +4,15 @@ const User = require('../models/User');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
 
-// Signup
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-
-    // Check if user exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
-
-    // Create new user
     const user = new User({ username, email, password });
     await user.save();
-
-    // Generate token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
     res.status(201).json({ 
@@ -32,24 +25,17 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// Login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Find user
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-
-    // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-
-    // Generate token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
     res.json({ 
@@ -62,12 +48,9 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
 router.post('/change-password', authMiddleware, async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      
-      // 1. Find user using authenticated ID
       const user = await User.findById(req.userId);
       if (!user) {
         return res.status(404).json({
@@ -75,8 +58,6 @@ router.post('/change-password', authMiddleware, async (req, res) => {
           message: 'User not found'
         });
       }
-  
-      // 2. Verify current password
       const isMatch = await user.comparePassword(currentPassword);
       if (!isMatch) {
         return res.status(401).json({
@@ -84,12 +65,8 @@ router.post('/change-password', authMiddleware, async (req, res) => {
           message: 'Current password is incorrect'
         });
       }
-  
-      // 3. Update password (triggers pre-save hook)
       user.password = newPassword;
       await user.save();
-  
-      // 4. Respond with success
       res.json({
         success: true,
         message: 'Password updated successfully'
@@ -103,8 +80,6 @@ router.post('/change-password', authMiddleware, async (req, res) => {
       });
     }
   });
-
-// Make sure you have this exact route
 router.get('/me', authMiddleware, async (req, res) => {
     try {
       const user = await User.findById(req.userId).select('-password');
